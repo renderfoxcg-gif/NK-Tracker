@@ -8,6 +8,9 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Daily · Weekly · Monthly Tracker</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
   :root {
     --bg: #f6f4ee;
@@ -168,12 +171,51 @@
   .tx-amt.income { color: var(--good); font-weight: 600; }
   .tx-amt.expense { color: var(--ink); font-weight: 600; }
   .tx-del { background: none; border: none; color: var(--ink-soft); cursor: pointer; font-size: 12px; }
+  #login-overlay {
+    position: fixed; inset: 0; background: var(--bg); z-index: 1000;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .login-box { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 28px; width: 100%; max-width: 340px; }
+  .login-box h1 { font-size: 20px; margin: 0 0 6px; }
+  .login-box p.sub { margin: 0 0 20px; }
+  .login-box input[type=email], .login-box input[type=password] {
+    width: 100%; margin-bottom: 10px; padding: 9px 12px; font-size: 14px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font-family: inherit;
+  }
+  .login-box button {
+    width: 100%; padding: 10px; border: none; border-radius: 8px; background: var(--accent);
+    color: var(--bg); font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 4px;
+  }
+  #login-error { color: var(--danger); font-size: 12.5px; margin-top: 10px; min-height: 16px; }
+  #login-status { color: var(--ink-soft); font-size: 12.5px; margin-top: 10px; min-height: 16px; }
+  #sync-status { font-size: 11.5px; color: var(--ink-soft); }
+  #sign-out-btn {
+    font-size: 12.5px; padding: 6px 12px; border: 1px solid var(--line);
+    background: var(--card); color: var(--ink); border-radius: 8px; cursor: pointer;
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>Daily · Weekly · Monthly</h1>
-  <p class="sub">Your daily practices, rolled up into weekly and monthly progress.</p>
+<div id="login-overlay">
+  <div class="login-box">
+    <h1>Daily · Weekly · Monthly</h1>
+    <p class="sub">Sign in to sync across your devices.</p>
+    <input type="email" id="login-email" placeholder="Email" autocomplete="username">
+    <input type="password" id="login-password" placeholder="Password" autocomplete="current-password">
+    <button id="login-btn">Sign in</button>
+    <p id="login-error"></p>
+    <p id="login-status"></p>
+  </div>
+</div>
+<div class="wrap" id="app-wrap" style="display:none;">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+    <div>
+      <h1>Daily · Weekly · Monthly</h1>
+      <p class="sub">Your daily practices, rolled up into weekly and monthly progress.</p>
+    </div>
+    <button id="sign-out-btn">Sign out</button>
+  </div>
+  <p id="sync-status" style="margin:-16px 0 16px;"></p>
   <div style="display:flex; gap:8px; margin:-10px 0 20px;">
     <button id="export-btn" style="font-size:12.5px; padding:6px 12px; border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:8px; cursor:pointer;">Export backup</button>
     <button id="import-btn" style="font-size:12.5px; padding:6px 12px; border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:8px; cursor:pointer;">Import backup</button>
@@ -384,6 +426,140 @@
 </div>
 
 <script>
+// ---------- FIREBASE SETUP ----------
+const firebaseConfig = {
+  apiKey: "AIzaSyBnWPdLKQLTjI9kc35dNIXjXUoRtnxpNxM",
+  authDomain: "nk-tracker.firebaseapp.com",
+  projectId: "nk-tracker",
+  storageBucket: "nk-tracker.firebasestorage.app",
+  messagingSenderId: "216137098785",
+  appId: "1:216137098785:web:f140ab3e75cdc8408ba560"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+try { db.enablePersistence({ synchronizeTabs: true }).catch(() => {}); } catch (e) {}
+
+let currentUid = null;
+let applyingRemote = false;
+let pushTimer = null;
+let unsubscribeSnapshot = null;
+
+function collectAllLocalData() {
+  const all = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    all[key] = localStorage.getItem(key);
+  }
+  return all;
+}
+
+function pushToFirestore() {
+  if (!currentUid) return;
+  const all = collectAllLocalData();
+  db.collection('users').doc(currentUid).set({
+    data: all,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(() => {
+    document.getElementById('sync-status').textContent = 'Synced just now';
+  }).catch((e) => {
+    document.getElementById('sync-status').textContent = 'Sync will retry (offline or connection issue)';
+    console.log('push failed', e);
+  });
+}
+function schedulePush() {
+  clearTimeout(pushTimer);
+  document.getElementById('sync-status').textContent = 'Syncing…';
+  pushTimer = setTimeout(pushToFirestore, 800);
+}
+
+function mergeRemoteData(remoteData) {
+  applyingRemote = true;
+  Object.keys(remoteData || {}).forEach((key) => {
+    localStorage.setItem(key, remoteData[key]);
+  });
+  applyingRemote = false;
+  refreshCurrentTab();
+}
+
+function refreshCurrentTab() {
+  // reload dynamic data structures from localStorage after a remote merge
+  TASK_LIST = loadTaskList();
+  FIN_CATEGORIES = loadCategories();
+  FIN_TRANSACTIONS = loadTransactions();
+  const activeTabBtn = document.querySelector('.tab.active');
+  const tab = activeTabBtn ? activeTabBtn.dataset.tab : 'daily';
+  if (tab === 'daily') renderDaily();
+  else if (tab === 'weekly') renderWeek();
+  else if (tab === 'monthly') renderMonth();
+  else if (tab === 'finance') renderFinance();
+  else if (tab === 'insights') renderInsights();
+}
+
+// Monkey-patch localStorage.setItem so every existing save in this app
+// automatically mirrors to Firestore, with no changes needed elsewhere.
+const _origSetItem = localStorage.setItem.bind(localStorage);
+localStorage.setItem = function(key, value) {
+  _origSetItem(key, value);
+  if (!applyingRemote && currentUid) schedulePush();
+};
+
+function startApp() {
+  renderDaily();
+  scheduleReminderCheck();
+}
+
+function showLogin() {
+  document.getElementById('login-overlay').style.display = 'flex';
+  document.getElementById('app-wrap').style.display = 'none';
+}
+function hideLogin() {
+  document.getElementById('login-overlay').style.display = 'none';
+  document.getElementById('app-wrap').style.display = 'block';
+}
+
+auth.onAuthStateChanged((user) => {
+  if (unsubscribeSnapshot) { unsubscribeSnapshot(); unsubscribeSnapshot = null; }
+  if (user) {
+    currentUid = user.uid;
+    document.getElementById('login-status').textContent = 'Signed in — loading your data…';
+    const ref = db.collection('users').doc(currentUid);
+    ref.get().then((snap) => {
+      if (snap.exists) mergeRemoteData(snap.data().data);
+      hideLogin();
+      startApp();
+      unsubscribeSnapshot = ref.onSnapshot((s) => {
+        if (s.exists && !s.metadata.hasPendingWrites) mergeRemoteData(s.data().data);
+      }, (err) => console.log('snapshot error', err));
+    }).catch((e) => {
+      console.log('initial fetch failed, starting with local data', e);
+      hideLogin();
+      startApp();
+    });
+  } else {
+    currentUid = null;
+    showLogin();
+  }
+});
+
+document.getElementById('login-btn').addEventListener('click', () => {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errorEl = document.getElementById('login-error');
+  errorEl.textContent = '';
+  document.getElementById('login-status').textContent = 'Signing in…';
+  auth.signInWithEmailAndPassword(email, password).catch((err) => {
+    document.getElementById('login-status').textContent = '';
+    errorEl.textContent = err.message.replace('Firebase: ', '');
+  });
+});
+document.getElementById('login-password').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('login-btn').click();
+});
+document.getElementById('sign-out-btn').addEventListener('click', () => {
+  auth.signOut();
+});
+
 // ---------- TASK LIST ----------
 const TASK_LIST_KEY = 'task-list-v2';
 function loadTaskList() {
@@ -733,8 +909,6 @@ async function renderMonth() {
 }
 document.getElementById('prev-month').addEventListener('click', () => { currentMonth.setMonth(currentMonth.getMonth()-1); renderMonth(); });
 document.getElementById('next-month').addEventListener('click', () => { currentMonth.setMonth(currentMonth.getMonth()+1); renderMonth(); });
-
-renderDaily();
 
 // ---------- FINANCE ----------
 const FIN_CAT_KEY = 'finance-categories-v1';
@@ -1128,7 +1302,6 @@ function scheduleReminderCheck() {
     localStorage.setItem('reminder-last-fired', todayStr);
   }, 30000);
 }
-scheduleReminderCheck();
 
 // ---------- EXPORT / IMPORT ----------
 document.getElementById('export-btn').addEventListener('click', () => {
@@ -1157,8 +1330,14 @@ document.getElementById('import-file').addEventListener('change', (e) => {
     try {
       const data = JSON.parse(evt.target.result);
       Object.keys(data).forEach(key => localStorage.setItem(key, data[key]));
-      alert('Backup restored. Reloading.');
-      location.reload();
+      clearTimeout(pushTimer);
+      if (currentUid) {
+        pushToFirestore();
+        setTimeout(() => { alert('Backup restored and synced. Reloading.'); location.reload(); }, 600);
+      } else {
+        alert('Backup restored. Reloading.');
+        location.reload();
+      }
     } catch (err) {
       alert('That file could not be read as a valid backup.');
     }
