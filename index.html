@@ -475,7 +475,16 @@ function schedulePush() {
   pushTimer = setTimeout(pushToFirestore, 800);
 }
 
+let pendingRemoteMerge = null;
+function isUserTyping() {
+  const el = document.activeElement;
+  return !!(el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'));
+}
 function mergeRemoteData(remoteData) {
+  if (isUserTyping()) {
+    pendingRemoteMerge = remoteData;
+    return;
+  }
   applyingRemote = true;
   Object.keys(remoteData || {}).forEach((key) => {
     localStorage.setItem(key, remoteData[key]);
@@ -483,6 +492,14 @@ function mergeRemoteData(remoteData) {
   applyingRemote = false;
   refreshCurrentTab();
 }
+document.addEventListener('focusout', (e) => {
+  if (!pendingRemoteMerge) return;
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
+    const data = pendingRemoteMerge;
+    pendingRemoteMerge = null;
+    setTimeout(() => mergeRemoteData(data), 50);
+  }
+}, true);
 
 function refreshCurrentTab() {
   // reload dynamic data structures from localStorage after a remote merge
