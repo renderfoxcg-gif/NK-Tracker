@@ -454,9 +454,11 @@ function collectAllLocalData() {
   return all;
 }
 
+let lastPushedJSON = null;
 function pushToFirestore() {
   if (!currentUid) return;
   const all = collectAllLocalData();
+  lastPushedJSON = JSON.stringify(all);
   db.collection('users').doc(currentUid).set({
     data: all,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -525,11 +527,15 @@ auth.onAuthStateChanged((user) => {
     document.getElementById('login-status').textContent = 'Signed in — loading your data…';
     const ref = db.collection('users').doc(currentUid);
     ref.get().then((snap) => {
-      if (snap.exists) mergeRemoteData(snap.data().data);
+      if (snap.exists) { mergeRemoteData(snap.data().data); lastPushedJSON = JSON.stringify(snap.data().data); }
       hideLogin();
       startApp();
       unsubscribeSnapshot = ref.onSnapshot((s) => {
-        if (s.exists && !s.metadata.hasPendingWrites) mergeRemoteData(s.data().data);
+        if (!s.exists || s.metadata.hasPendingWrites) return;
+        const remoteData = s.data().data;
+        const remoteJSON = JSON.stringify(remoteData);
+        if (remoteJSON === lastPushedJSON) return; // our own write echoing back, nothing changed
+        mergeRemoteData(remoteData);
       }, (err) => console.log('snapshot error', err));
     }).catch((e) => {
       console.log('initial fetch failed, starting with local data', e);
@@ -642,6 +648,7 @@ async function setDaily(dateStr, data) {
 }
 
 let currentDaily = new Date();
+let openNoteIds = new Set();
 let currentWeek = startOfWeek(new Date());
 let currentMonth = new Date();
 
@@ -691,7 +698,7 @@ async function renderDaily() {
       '<label for="t' + task.id + '">' + task.name + freqTag + '</label>' +
       '<button class="note-toggle' + (entry.note ? ' has-note' : '') + '" data-id="' + task.id + '">note</button>' +
       '</div>' +
-      '<div class="note-box" id="notebox-' + task.id + '"><input type="text" placeholder="Note for today" value="' + (entry.note || '').replace(/"/g,'&quot;') + '"></div>';
+      '<div class="note-box' + (openNoteIds.has(task.id) ? ' open' : '') + '" id="notebox-' + task.id + '"><input type="text" placeholder="Note for today" value="' + (entry.note || '').replace(/"/g,'&quot;') + '"></div>';
     list.appendChild(row);
 
     const control = row.querySelector('#t' + task.id);
@@ -718,7 +725,10 @@ async function renderDaily() {
 
     const noteToggle = row.querySelector('.note-toggle');
     const noteBox = row.querySelector('#notebox-' + task.id);
-    noteToggle.addEventListener('click', () => { noteBox.classList.toggle('open'); });
+    noteToggle.addEventListener('click', () => {
+      noteBox.classList.toggle('open');
+      if (noteBox.classList.contains('open')) openNoteIds.add(task.id); else openNoteIds.delete(task.id);
+    });
     const noteInput = noteBox.querySelector('input');
     noteInput.addEventListener('input', () => {
       clearTimeout(noteInput._t);
@@ -822,8 +832,8 @@ document.getElementById('add-task-btn').addEventListener('click', () => {
 document.getElementById('new-task-input').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') document.getElementById('add-task-btn').click();
 });
-document.getElementById('prev-day').addEventListener('click', () => { currentDaily.setDate(currentDaily.getDate() - 1); renderDaily(); });
-document.getElementById('next-day').addEventListener('click', () => { currentDaily.setDate(currentDaily.getDate() + 1); renderDaily(); });
+document.getElementById('prev-day').addEventListener('click', () => { currentDaily.setDate(currentDaily.getDate() - 1); openNoteIds.clear(); renderDaily(); });
+document.getElementById('next-day').addEventListener('click', () => { currentDaily.setDate(currentDaily.getDate() + 1); openNoteIds.clear(); renderDaily(); });
 
 // ---------- WEEKLY ----------
 async function renderWeek() {
