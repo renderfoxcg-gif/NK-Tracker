@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#8a6b3f">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Daily · Weekly · Monthly Tracker</title>
+<style>
+  :root {
+    --bg: #f6f4ee;
+    --card: #ffffff;
+    --ink: #24231f;
+    --ink-soft: #6b6a63;
+    --line: #e4e1d6;
+    --accent: #8a6b3f;
+    --accent-soft: #ede4d3;
+    --good: #4c7a5c;
+    --good-soft: #e2ede4;
+    --danger: #b0503f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1b18;
+      --card: #24231f;
+      --ink: #ece9e0;
+      --ink-soft: #a19e93;
+      --line: #38362f;
+      --accent: #d8b989;
+      --accent-soft: #332a1c;
+      --good: #8fbf9f;
+      --good-soft: #223327;
+      --danger: #e08a76;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 32px 20px 80px; }
+  h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: 500;
+    font-size: 26px;
+    margin: 0 0 4px;
+    letter-spacing: 0.2px;
+  }
+  .sub { color: var(--ink-soft); font-size: 14px; margin: 0 0 28px; }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 24px; flex-wrap: wrap; }
+  .tab {
+    background: none; border: none; font-size: 14px; font-weight: 500;
+    color: var(--ink-soft); padding: 10px 16px; cursor: pointer;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .tab.active { color: var(--ink); border-bottom-color: var(--accent); }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  .card h2 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; font-size: 17px; margin: 0 0 14px; }
+  .date-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .date-row .navbtn {
+    background: none; border: 1px solid var(--line); border-radius: 8px;
+    width: 32px; height: 32px; color: var(--ink); cursor: pointer; font-size: 16px;
+  }
+  .date-row .date-label { font-size: 14px; font-weight: 500; }
+  .task-row { padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .task-row:last-child { border-bottom: none; }
+  .task-main { display: flex; align-items: center; gap: 12px; }
+  .task-row input[type=checkbox] { width: 19px; height: 19px; accent-color: var(--accent); flex-shrink: 0; cursor: pointer; }
+  .task-row label { font-size: 14.5px; cursor: pointer; flex: 1; }
+  .task-row.done label { color: var(--ink-soft); text-decoration: line-through; }
+  .freq-tag { font-size: 11px; color: var(--ink-soft); background: var(--accent-soft); padding: 2px 7px; border-radius: 20px; margin-left: 6px; white-space: nowrap; }
+  .numeric-input {
+    width: 64px; font-family: inherit; font-size: 13.5px; padding: 5px 8px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink);
+  }
+  .numeric-unit { font-size: 12.5px; color: var(--ink-soft); white-space: nowrap; }
+  .note-toggle {
+    background: none; border: none; color: var(--ink-soft); cursor: pointer;
+    font-size: 12px; padding: 2px 4px; flex-shrink: 0;
+  }
+  .note-toggle.has-note { color: var(--accent); }
+  .note-box { display: none; margin: 8px 0 0 31px; }
+  .note-box.open { display: block; }
+  .note-box input[type=text] { width: 100%; }
+  .progress-bar { height: 6px; background: var(--accent-soft); border-radius: 4px; overflow: hidden; margin: 4px 0 2px; }
+  .progress-bar > div { height: 100%; background: var(--accent); }
+  .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 6px; }
+  .stat { background: var(--accent-soft); border-radius: 10px; padding: 12px; text-align: center; }
+  .stat .num { font-size: 22px; font-weight: 600; color: var(--accent); }
+  .stat .lbl { font-size: 11.5px; color: var(--ink-soft); margin-top: 2px; }
+  .week-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+  .week-table th, .week-table td { padding: 6px 4px; text-align: center; border-bottom: 1px solid var(--line); }
+  .week-table th { color: var(--ink-soft); font-weight: 500; font-size: 11.5px; }
+  .week-table td:first-child, .week-table th:first-child { text-align: left; padding-left: 4px; }
+  .check-yes { color: var(--good); font-weight: 600; }
+  .check-no { color: var(--line); }
+  .target-met { color: var(--good); font-weight: 600; }
+  .target-pending { color: var(--ink-soft); }
+  textarea {
+    width: 100%; min-height: 70px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--bg); color: var(--ink); font-family: inherit; font-size: 13.5px;
+    padding: 10px; resize: vertical;
+  }
+  .hint { font-size: 12px; color: var(--ink-soft); margin-top: 8px; }
+  .loading { color: var(--ink-soft); font-size: 13px; padding: 20px 0; }
+  .heatmap { display: flex; gap: 3px; overflow-x: auto; padding-bottom: 6px; }
+  .heatmap-col { display: flex; flex-direction: column; gap: 3px; }
+  .heatmap-cell { width: 12px; height: 12px; border-radius: 3px; background: var(--line); }
+  .heatmap-legend { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--ink-soft); margin-top: 8px; }
+  .bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 12.5px; }
+  .bar-row .bar-label { width: 150px; flex-shrink: 0; color: var(--ink-soft); }
+  .bar-row .bar-track { flex: 1; height: 8px; background: var(--accent-soft); border-radius: 4px; overflow: hidden; }
+  .bar-row .bar-fill { height: 100%; background: var(--accent); }
+  .bar-row .bar-val { width: 32px; text-align: right; color: var(--ink-soft); }
+  select, input[type=time], input[type=number] {
+    font-family: inherit; font-size: 13.5px; padding: 6px 10px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink);
+  }
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+  .switch { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider-toggle { position: absolute; cursor: pointer; inset: 0; background: var(--line); border-radius: 22px; transition: 0.15s; }
+  .slider-toggle:before { content: ""; position: absolute; height: 16px; width: 16px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.15s; }
+  .switch input:checked + .slider-toggle { background: var(--accent); }
+  .switch input:checked + .slider-toggle:before { transform: translateX(18px); }
+  input[type=text] {
+    font-family: inherit; font-size: 13.5px; padding: 6px 10px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); flex: 1;
+  }
+  .manage-row { padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+  .manage-row:last-child { border-bottom: none; }
+  .manage-main { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .manage-main button {
+    font-size: 12px; padding: 4px 10px; border: 1px solid var(--line);
+    background: var(--card); color: var(--ink); border-radius: 6px; cursor: pointer; flex-shrink: 0;
+  }
+  .archived-tag { color: var(--ink-soft); font-size: 11.5px; margin-left: 6px; }
+  .edit-form { display: none; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
+  .edit-form.open { display: flex; }
+  .add-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+  .add-form input[type=text] { min-width: 160px; }
+  .freeze-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .freeze-btn {
+    font-size: 12.5px; padding: 6px 14px; border: 1px solid var(--line);
+    background: var(--card); color: var(--ink); border-radius: 8px; cursor: pointer;
+  }
+  .freeze-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  input[type=date] {
+    font-family: inherit; font-size: 13.5px; padding: 6px 10px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink);
+  }
+  .budget-ok { color: var(--good); }
+  .budget-warn { color: var(--accent); }
+  .budget-over { color: var(--danger); font-weight: 600; }
+  .tx-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+  .tx-row:last-child { border-bottom: none; }
+  .tx-left { display: flex; flex-direction: column; }
+  .tx-cat { font-weight: 500; }
+  .tx-note { color: var(--ink-soft); font-size: 12px; }
+  .tx-right { display: flex; align-items: center; gap: 10px; }
+  .tx-amt.income { color: var(--good); font-weight: 600; }
+  .tx-amt.expense { color: var(--ink); font-weight: 600; }
+  .tx-del { background: none; border: none; color: var(--ink-soft); cursor: pointer; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Daily · Weekly · Monthly</h1>
+  <p class="sub">Your daily practices, rolled up into weekly and monthly progress.</p>
+  <div style="display:flex; gap:8px; margin:-10px 0 20px;">
+    <button id="export-btn" style="font-size:12.5px; padding:6px 12px; border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:8px; cursor:pointer;">Export backup</button>
+    <button id="import-btn" style="font-size:12.5px; padding:6px 12px; border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:8px; cursor:pointer;">Import backup</button>
+    <input type="file" id="import-file" accept="application/json" style="display:none;">
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="daily">Daily</button>
+    <button class="tab" data-tab="weekly">Weekly</button>
+    <button class="tab" data-tab="monthly">Monthly</button>
+    <button class="tab" data-tab="finance">Finance</button>
+    <button class="tab" data-tab="insights">Insights</button>
+  </div>
+
+  <div class="panel active" id="panel-daily">
+    <div class="card">
+      <div class="date-row">
+        <button class="navbtn" id="prev-day">‹</button>
+        <span class="date-label" id="daily-date-label">Today</span>
+        <button class="navbtn" id="next-day">›</button>
+      </div>
+      <div class="progress-bar"><div id="daily-progress-fill" style="width:0%"></div></div>
+      <p class="hint" id="daily-progress-text">0 of 9 done</p>
+      <div id="daily-list" style="margin-top:12px;">
+        <p class="loading">Loading…</p>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Manage tasks</h2>
+      <div id="manage-task-list"></div>
+      <p class="hint" style="margin-top:12px;">Add a new task:</p>
+      <div class="add-form">
+        <input type="text" id="new-task-input" placeholder="Task name">
+        <select id="new-task-freq">
+          <option value="7">Every day</option>
+          <option value="6">6x / week</option>
+          <option value="5">5x / week</option>
+          <option value="4">4x / week</option>
+          <option value="3">3x / week</option>
+          <option value="2">2x / week</option>
+          <option value="1">1x / week</option>
+        </select>
+        <select id="new-task-type">
+          <option value="checkbox">Yes/no</option>
+          <option value="numeric">Amount</option>
+        </select>
+        <input type="number" id="new-task-target" placeholder="Target" style="width:70px; display:none;" min="1">
+        <input type="text" id="new-task-unit" placeholder="Unit (pages, min)" style="width:130px; display:none;">
+        <button id="add-task-btn" style="white-space:nowrap; border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:8px; padding:6px 14px; cursor:pointer; font-size:13.5px;">Add</button>
+      </div>
+      <p class="hint">Removing a task archives it — your past history stays intact, it just stops appearing in today's list and current stats. You can restore it any time.</p>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-weekly">
+    <div class="card">
+      <div class="date-row">
+        <button class="navbtn" id="prev-week">‹</button>
+        <span class="date-label" id="week-label">This week</span>
+        <button class="navbtn" id="next-week">›</button>
+      </div>
+      <div class="stat-grid">
+        <div class="stat"><div class="num" id="week-total">0</div><div class="lbl">completed</div></div>
+        <div class="stat"><div class="num" id="week-pct">0%</div><div class="lbl" id="week-possible-label">of possible</div></div>
+        <div class="stat"><div class="num" id="week-best">–</div><div class="lbl">most consistent</div></div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="week-table" id="week-table"></table>
+      </div>
+      <p class="hint">"This wk" shows completions against each task's weekly target — green means the target was met.</p>
+    </div>
+    <div class="card">
+      <h2>Notes for the week</h2>
+      <textarea id="week-notes" placeholder="What moved things forward, what slipped, and why."></textarea>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-monthly">
+    <div class="card">
+      <div class="date-row">
+        <button class="navbtn" id="prev-month">‹</button>
+        <span class="date-label" id="month-label">This month</span>
+        <button class="navbtn" id="next-month">›</button>
+      </div>
+      <div class="stat-grid">
+        <div class="stat"><div class="num" id="month-total">0</div><div class="lbl">completed</div></div>
+        <div class="stat"><div class="num" id="month-pct">0%</div><div class="lbl" id="month-possible-label">of possible</div></div>
+        <div class="stat"><div class="num" id="month-days">0</div><div class="lbl">days logged</div></div>
+      </div>
+      <p class="hint">Breakdown by practice this month (against each task's expected count for the month):</p>
+      <div id="month-breakdown" style="margin-top:8px;"></div>
+    </div>
+    <div class="card">
+      <h2>Monthly summary</h2>
+      <textarea id="month-notes" placeholder="Wins, recurring obstacles, one adjustment for next month."></textarea>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-finance">
+    <div class="card">
+      <div class="date-row">
+        <button class="navbtn" id="prev-fin-month">‹</button>
+        <span class="date-label" id="fin-month-label">This month</span>
+        <button class="navbtn" id="next-fin-month">›</button>
+      </div>
+      <div class="stat-grid">
+        <div class="stat"><div class="num" id="fin-income">₹0</div><div class="lbl">income</div></div>
+        <div class="stat"><div class="num" id="fin-expenses">₹0</div><div class="lbl">expenses</div></div>
+        <div class="stat"><div class="num" id="fin-net">₹0</div><div class="lbl">net</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Budget vs actual</h2>
+      <div id="fin-budget-breakdown"></div>
+      <p class="hint" id="fin-budget-empty" style="display:none;">Set a monthly budget on your expense categories below to see progress here.</p>
+    </div>
+
+    <div class="card">
+      <h2>Add a transaction</h2>
+      <div class="add-form">
+        <input type="date" id="fin-tx-date">
+        <select id="fin-tx-category"></select>
+        <input type="number" id="fin-tx-amount" placeholder="Amount" step="0.01" style="width:110px;">
+        <input type="text" id="fin-tx-note" placeholder="Note (optional)">
+        <button id="fin-add-tx-btn" style="white-space:nowrap; border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:8px; padding:6px 14px; cursor:pointer; font-size:13.5px;">Add</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Transactions this month</h2>
+      <div id="fin-tx-list"></div>
+    </div>
+
+    <div class="card">
+      <h2>Manage categories</h2>
+      <div id="fin-category-list"></div>
+      <p class="hint" style="margin-top:12px;">Add a new category:</p>
+      <div class="add-form">
+        <input type="text" id="fin-new-cat-name" placeholder="Category name">
+        <select id="fin-new-cat-type">
+          <option value="expense">Expense</option>
+          <option value="income">Income</option>
+        </select>
+        <input type="number" id="fin-new-cat-budget" placeholder="Monthly budget (₹)" style="width:150px;">
+        <button id="fin-add-cat-btn" style="white-space:nowrap; border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:8px; padding:6px 14px; cursor:pointer; font-size:13.5px;">Add</button>
+      </div>
+      <p class="hint">Budget only applies to expense categories — it's what you're aiming to stay under each month.</p>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-insights">
+    <div class="card">
+      <h2>Streaks</h2>
+      <div class="stat-grid">
+        <div class="stat"><div class="num" id="streak-current">0</div><div class="lbl">current perfect streak</div></div>
+        <div class="stat"><div class="num" id="streak-best">0</div><div class="lbl">longest streak ever</div></div>
+        <div class="stat"><div class="num" id="streak-active">0</div><div class="lbl">days active in a row</div></div>
+      </div>
+      <div class="freeze-row">
+        <span style="font-size:13px; color:var(--ink-soft);" id="freeze-count-label">2 streak freezes available</span>
+        <button class="freeze-btn" id="freeze-btn">Use a freeze for today</button>
+      </div>
+      <p class="hint">A freeze protects today from breaking your perfect streak if you can't finish everything. You earn one back every 7-day perfect run, up to 4.</p>
+    </div>
+
+    <div class="card">
+      <h2>Activity</h2>
+      <p class="hint" style="margin-top:0;">Last 18 weeks, one column per week, darker means more completed that day.</p>
+      <div class="heatmap" id="heatmap"></div>
+      <div class="heatmap-legend">
+        <span>Less</span>
+        <div class="heatmap-cell" style="background:var(--line)"></div>
+        <div class="heatmap-cell" style="background:var(--accent-soft)"></div>
+        <div class="heatmap-cell" style="background:var(--accent); opacity:0.55"></div>
+        <div class="heatmap-cell" style="background:var(--accent)"></div>
+        <span>More</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Trend, last 30 days</h2>
+      <div id="trend-chart"></div>
+    </div>
+
+    <div class="card">
+      <h2>All-time, by practice</h2>
+      <div id="alltime-breakdown"></div>
+    </div>
+
+    <div class="card">
+      <h2>Daily reminder</h2>
+      <div class="toggle-row">
+        <span style="font-size:13.5px;">Remind me while this tab is open</span>
+        <label class="switch">
+          <input type="checkbox" id="reminder-toggle">
+          <span class="slider-toggle"></span>
+        </label>
+      </div>
+      <div class="toggle-row" id="reminder-time-row" style="display:none;">
+        <span style="font-size:13.5px;">Remind me at</span>
+        <input type="time" id="reminder-time" value="20:00">
+      </div>
+      <p class="hint" id="reminder-status" style="margin-top:0;"></p>
+      <p class="hint">This is a plain file with no server, so it can only notify you while this browser tab stays open — it can't send notifications after you close it, the way a phone app would.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---------- TASK LIST ----------
+const TASK_LIST_KEY = 'task-list-v2';
+function loadTaskList() {
+  try {
+    const raw = localStorage.getItem(TASK_LIST_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  // migrate from v1 if present
+  try {
+    const oldRaw = localStorage.getItem('task-list-v1');
+    if (oldRaw) {
+      const old = JSON.parse(oldRaw);
+      const migrated = old.map(t => ({id: t.id, name: t.name, archived: !!t.archived, timesPerWeek: 7, type: 'checkbox', target: 1, unit: ''}));
+      localStorage.setItem(TASK_LIST_KEY, JSON.stringify(migrated));
+      return migrated;
+    }
+  } catch (e) {}
+  const defaults = [
+    "Waking up early", "Meditation", "Physical exercise", "Visualization",
+    "Completing office tasks on time", "Reading books and taking notes",
+    "Learning through the LeaderForge curriculum", "Discussing a topic (alone or with friends)",
+    "Going to bed on time"
+  ].map((name, i) => ({id: String(i), name, archived: false, timesPerWeek: 7, type: 'checkbox', target: 1, unit: ''}));
+  localStorage.setItem(TASK_LIST_KEY, JSON.stringify(defaults));
+  return defaults;
+}
+function saveTaskList() {
+  try { localStorage.setItem(TASK_LIST_KEY, JSON.stringify(TASK_LIST)); } catch (e) { console.error(e); }
+}
+let TASK_LIST = loadTaskList();
+function getActiveTasks() { return TASK_LIST.filter(t => !t.archived); }
+function getAllTasks() { return TASK_LIST; }
+function addTask(name, timesPerWeek, type, target, unit) {
+  const maxId = TASK_LIST.reduce((m, t) => Math.max(m, parseInt(t.id, 10) || 0), -1);
+  TASK_LIST.push({id: String(maxId + 1), name, archived: false, timesPerWeek, type, target: target || 1, unit: unit || ''});
+  saveTaskList();
+}
+function archiveTask(id) { const t = TASK_LIST.find(t => t.id === id); if (t) t.archived = true; saveTaskList(); }
+function restoreTask(id) { const t = TASK_LIST.find(t => t.id === id); if (t) t.archived = false; saveTaskList(); }
+function updateTask(id, fields) { const t = TASK_LIST.find(t => t.id === id); if (t) Object.assign(t, fields); saveTaskList(); }
+
+// ---------- ENTRY NORMALIZATION ----------
+function normalizeEntry(raw) {
+  if (raw === undefined || raw === null) return {done: false, value: null, note: ''};
+  if (typeof raw === 'boolean') return {done: raw, value: null, note: ''};
+  if (typeof raw === 'object') return {done: !!raw.done, value: (raw.value !== undefined ? raw.value : null), note: raw.note || ''};
+  return {done: false, value: null, note: ''};
+}
+function isTaskDoneOnDay(task, dayRecord) {
+  const e = normalizeEntry(dayRecord ? dayRecord[task.id] : undefined);
+  if (task.type === 'numeric') return (e.value || 0) >= (task.target || 1);
+  return e.done;
+}
+
+// ---------- DATE HELPERS ----------
+function fmtDate(d) {
+  const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
+  return y + "-" + m + "-" + day;
+}
+function parseDate(s) {
+  const [y,m,d] = s.split("-").map(Number);
+  return new Date(y, m-1, d);
+}
+function startOfWeek(d) {
+  const day = d.getDay();
+  const diff = (day === 0 ? -6 : 1) - day;
+  const monday = new Date(d);
+  monday.setDate(d.getDate() + diff);
+  monday.setHours(0,0,0,0);
+  return monday;
+}
+async function getDaily(dateStr) {
+  try {
+    const raw = localStorage.getItem('daily:' + dateStr);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) { return {}; }
+}
+async function setDaily(dateStr, data) {
+  try { localStorage.setItem('daily:' + dateStr, JSON.stringify(data)); } catch (e) { console.error('save failed', e); }
+}
+
+let currentDaily = new Date();
+let currentWeek = startOfWeek(new Date());
+let currentMonth = new Date();
+
+// ---------- TABS ----------
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+    if (btn.dataset.tab === 'weekly') renderWeek();
+    if (btn.dataset.tab === 'monthly') renderMonth();
+    if (btn.dataset.tab === 'finance') renderFinance();
+    if (btn.dataset.tab === 'insights') renderInsights();
+  });
+});
+
+// ---------- DAILY ----------
+async function renderDaily() {
+  const dateStr = fmtDate(currentDaily);
+  const todayStr = fmtDate(new Date());
+  document.getElementById('daily-date-label').textContent =
+    dateStr === todayStr ? "Today · " + dateStr : dateStr;
+
+  const data = await getDaily(dateStr);
+  const list = document.getElementById('daily-list');
+  list.innerHTML = '';
+  const tasks = getActiveTasks();
+
+  tasks.forEach((task) => {
+    const entry = normalizeEntry(data[task.id]);
+    const done = isTaskDoneOnDay(task, data);
+    const row = document.createElement('div');
+    row.className = 'task-row' + (done ? ' done' : '');
+    const freqTag = task.timesPerWeek < 7 ? '<span class="freq-tag">' + task.timesPerWeek + 'x/week</span>' : '';
+
+    let controlHtml;
+    if (task.type === 'numeric') {
+      controlHtml = '<input type="number" class="numeric-input" id="t' + task.id + '" min="0" value="' + (entry.value !== null ? entry.value : '') + '" placeholder="0">' +
+        '<span class="numeric-unit">/ ' + task.target + (task.unit ? ' ' + task.unit : '') + '</span>';
+    } else {
+      controlHtml = '<input type="checkbox" id="t' + task.id + '" ' + (entry.done ? 'checked' : '') + '>';
+    }
+
+    row.innerHTML =
+      '<div class="task-main">' + controlHtml +
+      '<label for="t' + task.id + '">' + task.name + freqTag + '</label>' +
+      '<button class="note-toggle' + (entry.note ? ' has-note' : '') + '" data-id="' + task.id + '">note</button>' +
+      '</div>' +
+      '<div class="note-box" id="notebox-' + task.id + '"><input type="text" placeholder="Note for today" value="' + (entry.note || '').replace(/"/g,'&quot;') + '"></div>';
+    list.appendChild(row);
+
+    const control = row.querySelector('#t' + task.id);
+    if (task.type === 'numeric') {
+      control.addEventListener('input', async () => {
+        const d = await getDaily(dateStr);
+        const e = normalizeEntry(d[task.id]);
+        e.value = control.value === '' ? null : parseFloat(control.value);
+        e.done = (e.value || 0) >= (task.target || 1);
+        d[task.id] = e;
+        await setDaily(dateStr, d);
+        renderDaily();
+      });
+    } else {
+      control.addEventListener('change', async (ev) => {
+        const d = await getDaily(dateStr);
+        const e = normalizeEntry(d[task.id]);
+        e.done = ev.target.checked;
+        d[task.id] = e;
+        await setDaily(dateStr, d);
+        renderDaily();
+      });
+    }
+
+    const noteToggle = row.querySelector('.note-toggle');
+    const noteBox = row.querySelector('#notebox-' + task.id);
+    noteToggle.addEventListener('click', () => { noteBox.classList.toggle('open'); });
+    const noteInput = noteBox.querySelector('input');
+    noteInput.addEventListener('input', () => {
+      clearTimeout(noteInput._t);
+      noteInput._t = setTimeout(async () => {
+        const d = await getDaily(dateStr);
+        const e = normalizeEntry(d[task.id]);
+        e.note = noteInput.value;
+        d[task.id] = e;
+        await setDaily(dateStr, d);
+        noteToggle.classList.toggle('has-note', !!noteInput.value);
+      }, 400);
+    });
+  });
+
+  const doneCount = tasks.filter(t => isTaskDoneOnDay(t, data)).length;
+  const total = tasks.length || 1;
+  document.getElementById('daily-progress-fill').style.width = Math.round(doneCount / total * 100) + '%';
+  document.getElementById('daily-progress-text').textContent = doneCount + ' of ' + tasks.length + ' done';
+  renderManageTasks();
+}
+
+function renderManageTasks() {
+  const container = document.getElementById('manage-task-list');
+  container.innerHTML = getAllTasks().map(t => {
+    const freqLabel = t.timesPerWeek === 7 ? 'Daily' : t.timesPerWeek + 'x/week';
+    const typeLabel = t.type === 'numeric' ? 'Amount (' + t.target + (t.unit ? ' ' + t.unit : '') + ')' : 'Yes/no';
+    return '<div class="manage-row" data-row-id="' + t.id + '">' +
+      '<div class="manage-main"><span>' + t.name + (t.archived ? ' <span class="archived-tag">(removed)</span>' : '') +
+      '<span class="archived-tag">' + freqLabel + ' · ' + typeLabel + '</span></span>' +
+      '<span style="display:flex; gap:6px;">' +
+      '<button data-action="edit" data-id="' + t.id + '">Edit</button>' +
+      '<button data-action="' + (t.archived ? 'restore' : 'archive') + '" data-id="' + t.id + '">' + (t.archived ? 'Restore' : 'Remove') + '</button>' +
+      '</span></div>' +
+      '<div class="edit-form" id="edit-' + t.id + '">' +
+      '<input type="text" data-field="name" value="' + t.name.replace(/"/g,'&quot;') + '" style="min-width:140px;">' +
+      '<select data-field="timesPerWeek">' + [7,6,5,4,3,2,1].map(n => '<option value="'+n+'"'+(t.timesPerWeek===n?' selected':'')+'>'+(n===7?'Every day':n+'x / week')+'</option>').join('') + '</select>' +
+      '<select data-field="type"><option value="checkbox"' + (t.type==='checkbox'?' selected':'') + '>Yes/no</option><option value="numeric"' + (t.type==='numeric'?' selected':'') + '>Amount</option></select>' +
+      '<input type="number" data-field="target" value="' + t.target + '" style="width:70px; display:' + (t.type==='numeric'?'inline-block':'none') + ';" min="1">' +
+      '<input type="text" data-field="unit" value="' + (t.unit||'').replace(/"/g,'&quot;') + '" placeholder="Unit" style="width:110px; display:' + (t.type==='numeric'?'inline-block':'none') + ';">' +
+      '<button data-action="save" data-id="' + t.id + '">Save</button>' +
+      '<button data-action="cancel" data-id="' + t.id + '">Cancel</button>' +
+      '</div></div>';
+  }).join('');
+
+  container.querySelectorAll('button[data-action="archive"], button[data-action="restore"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.action === 'archive') archiveTask(btn.dataset.id); else restoreTask(btn.dataset.id);
+      renderDaily();
+    });
+  });
+  container.querySelectorAll('button[data-action="edit"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById('edit-' + btn.dataset.id).classList.toggle('open');
+    });
+  });
+  container.querySelectorAll('button[data-action="cancel"]').forEach(btn => {
+    btn.addEventListener('click', () => { renderManageTasks(); });
+  });
+  container.querySelectorAll('.edit-form select[data-field="type"]').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const form = sel.closest('.edit-form');
+      const isNumeric = sel.value === 'numeric';
+      form.querySelector('[data-field="target"]').style.display = isNumeric ? 'inline-block' : 'none';
+      form.querySelector('[data-field="unit"]').style.display = isNumeric ? 'inline-block' : 'none';
+    });
+  });
+  container.querySelectorAll('button[data-action="save"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const form = document.getElementById('edit-' + btn.dataset.id);
+      const name = form.querySelector('[data-field="name"]').value.trim();
+      const timesPerWeek = parseInt(form.querySelector('[data-field="timesPerWeek"]').value, 10);
+      const type = form.querySelector('[data-field="type"]').value;
+      const target = parseFloat(form.querySelector('[data-field="target"]').value) || 1;
+      const unit = form.querySelector('[data-field="unit"]').value.trim();
+      if (!name) return;
+      updateTask(btn.dataset.id, {name, timesPerWeek, type, target, unit});
+      renderDaily();
+    });
+  });
+}
+
+document.getElementById('new-task-type').addEventListener('change', (e) => {
+  const isNumeric = e.target.value === 'numeric';
+  document.getElementById('new-task-target').style.display = isNumeric ? 'inline-block' : 'none';
+  document.getElementById('new-task-unit').style.display = isNumeric ? 'inline-block' : 'none';
+});
+document.getElementById('add-task-btn').addEventListener('click', () => {
+  const input = document.getElementById('new-task-input');
+  const name = input.value.trim();
+  if (!name) return;
+  const freq = parseInt(document.getElementById('new-task-freq').value, 10);
+  const type = document.getElementById('new-task-type').value;
+  const target = parseFloat(document.getElementById('new-task-target').value) || 1;
+  const unit = document.getElementById('new-task-unit').value.trim();
+  addTask(name, freq, type, target, unit);
+  input.value = '';
+  document.getElementById('new-task-target').value = '';
+  document.getElementById('new-task-unit').value = '';
+  renderDaily();
+});
+document.getElementById('new-task-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('add-task-btn').click();
+});
+document.getElementById('prev-day').addEventListener('click', () => { currentDaily.setDate(currentDaily.getDate() - 1); renderDaily(); });
+document.getElementById('next-day').addEventListener('click', () => { currentDaily.setDate(currentDaily.getDate() + 1); renderDaily(); });
+
+// ---------- WEEKLY ----------
+async function renderWeek() {
+  const monday = currentWeek;
+  const sunday = new Date(monday); sunday.setDate(monday.getDate()+6);
+  document.getElementById('week-label').textContent = fmtDate(monday) + ' to ' + fmtDate(sunday);
+
+  const days = [];
+  for (let i=0;i<7;i++){ const d = new Date(monday); d.setDate(monday.getDate()+i); days.push(d); }
+  const dayData = await Promise.all(days.map(d => getDaily(fmtDate(d))));
+  const tasks = getActiveTasks();
+
+  let total = 0;
+  const taskCounts = new Array(tasks.length).fill(0);
+  dayData.forEach(d => { tasks.forEach((t,i) => { if (isTaskDoneOnDay(t, d)) { total++; taskCounts[i]++; } }); });
+  const possible = tasks.reduce((s,t) => s + t.timesPerWeek, 0);
+  document.getElementById('week-total').textContent = total;
+  document.getElementById('week-pct').textContent = possible ? Math.round(total/possible*100) + '%' : '0%';
+  document.getElementById('week-possible-label').textContent = 'of ' + possible + ' possible';
+  const bestIdx = taskCounts.indexOf(Math.max(...taskCounts, 0));
+  document.getElementById('week-best').textContent = tasks.length && Math.max(...taskCounts) > 0 ? tasks[bestIdx].name.split(' ').slice(0,2).join(' ') : '–';
+
+  const dayLabels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  let html = '<tr><th>Practice</th>' + dayLabels.map(l => '<th>'+l+'</th>').join('') + '<th>This wk</th></tr>';
+  tasks.forEach((t,i) => {
+    const met = taskCounts[i] >= t.timesPerWeek;
+    html += '<tr><td>'+t.name+'</td>' +
+      dayData.map(d => '<td class="'+(isTaskDoneOnDay(t,d)?'check-yes':'check-no')+'">'+(isTaskDoneOnDay(t,d)?'✓':'·')+'</td>').join('') +
+      '<td class="'+(met?'target-met':'target-pending')+'">'+taskCounts[i]+'/'+t.timesPerWeek+'</td></tr>';
+  });
+  document.getElementById('week-table').innerHTML = html;
+
+  const weekKey = 'weeknotes:' + fmtDate(monday);
+  const notesEl = document.getElementById('week-notes');
+  notesEl.value = localStorage.getItem(weekKey) || '';
+  notesEl.oninput = () => {
+    clearTimeout(notesEl._t);
+    notesEl._t = setTimeout(() => { try { localStorage.setItem(weekKey, notesEl.value); } catch(e){} }, 400);
+  };
+}
+document.getElementById('prev-week').addEventListener('click', () => { currentWeek.setDate(currentWeek.getDate()-7); renderWeek(); });
+document.getElementById('next-week').addEventListener('click', () => { currentWeek.setDate(currentWeek.getDate()+7); renderWeek(); });
+
+// ---------- MONTHLY ----------
+async function renderMonth() {
+  const y = currentMonth.getFullYear(), m = currentMonth.getMonth();
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('month-label').textContent = monthNames[m] + ' ' + y;
+
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+  const allDates = [];
+  for (let d=1; d<=daysInMonth; d++) allDates.push(new Date(y,m,d));
+  const dayData = await Promise.all(allDates.map(d => getDaily(fmtDate(d))));
+  const tasks = getActiveTasks();
+
+  let total = 0, loggedDays = 0;
+  const taskCounts = new Array(tasks.length).fill(0);
+  dayData.forEach(d => {
+    if (Object.keys(d).length > 0) loggedDays++;
+    tasks.forEach((t,i) => { if (isTaskDoneOnDay(t, d)) { total++; taskCounts[i]++; } });
+  });
+  const expectedPerTask = tasks.map(t => Math.round(t.timesPerWeek / 7 * daysInMonth));
+  const possible = expectedPerTask.reduce((s,v) => s+v, 0);
+  document.getElementById('month-total').textContent = total;
+  document.getElementById('month-pct').textContent = possible ? Math.round(total/possible*100) + '%' : '0%';
+  document.getElementById('month-possible-label').textContent = 'of ' + possible + ' possible';
+  document.getElementById('month-days').textContent = loggedDays;
+
+  const breakdown = document.getElementById('month-breakdown');
+  breakdown.innerHTML = tasks.map((t,i) => {
+    const expected = expectedPerTask[i] || 1;
+    const pct = Math.round(taskCounts[i]/expected*100);
+    return '<div style="margin-bottom:8px;"><div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:3px;"><span>'+t.name+'</span><span style="color:var(--ink-soft)">'+taskCounts[i]+'/'+expected+'</span></div><div class="progress-bar"><div style="width:'+Math.min(pct,100)+'%"></div></div></div>';
+  }).join('');
+
+  const monthKey = 'monthnotes:' + y + '-' + String(m+1).padStart(2,'0');
+  const notesEl = document.getElementById('month-notes');
+  notesEl.value = localStorage.getItem(monthKey) || '';
+  notesEl.oninput = () => {
+    clearTimeout(notesEl._t);
+    notesEl._t = setTimeout(() => { try { localStorage.setItem(monthKey, notesEl.value); } catch(e){} }, 400);
+  };
+}
+document.getElementById('prev-month').addEventListener('click', () => { currentMonth.setMonth(currentMonth.getMonth()-1); renderMonth(); });
+document.getElementById('next-month').addEventListener('click', () => { currentMonth.setMonth(currentMonth.getMonth()+1); renderMonth(); });
+
+renderDaily();
+
+// ---------- FINANCE ----------
+const FIN_CAT_KEY = 'finance-categories-v1';
+const FIN_TX_KEY = 'finance-transactions-v1';
+function loadCategories() {
+  try {
+    const raw = localStorage.getItem(FIN_CAT_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch(e) {}
+  const defaults = [
+    {id:'0', name:'Salary', type:'income', budget:0},
+    {id:'1', name:'Groceries', type:'expense', budget:0},
+    {id:'2', name:'Rent', type:'expense', budget:0},
+    {id:'3', name:'Transport', type:'expense', budget:0},
+    {id:'4', name:'Utilities', type:'expense', budget:0},
+    {id:'5', name:'Entertainment', type:'expense', budget:0},
+    {id:'6', name:'Savings', type:'expense', budget:0}
+  ];
+  localStorage.setItem(FIN_CAT_KEY, JSON.stringify(defaults));
+  return defaults;
+}
+function saveCategories() { try { localStorage.setItem(FIN_CAT_KEY, JSON.stringify(FIN_CATEGORIES)); } catch(e) { console.error(e); } }
+let FIN_CATEGORIES = loadCategories();
+function addCategory(name, type, budget) {
+  const maxId = FIN_CATEGORIES.reduce((m,c) => Math.max(m, parseInt(c.id,10)||0), -1);
+  FIN_CATEGORIES.push({id: String(maxId+1), name, type, budget: budget || 0});
+  saveCategories();
+}
+function updateCategory(id, fields) { const c = FIN_CATEGORIES.find(c=>c.id===id); if (c) Object.assign(c, fields); saveCategories(); }
+function removeCategory(id) { FIN_CATEGORIES = FIN_CATEGORIES.filter(c => c.id !== id); saveCategories(); }
+
+function loadTransactions() {
+  try { return JSON.parse(localStorage.getItem(FIN_TX_KEY) || '[]'); } catch(e) { return []; }
+}
+function saveTransactions() { try { localStorage.setItem(FIN_TX_KEY, JSON.stringify(FIN_TRANSACTIONS)); } catch(e) { console.error(e); } }
+let FIN_TRANSACTIONS = loadTransactions();
+function addTransaction(date, categoryId, amount, note) {
+  const cat = FIN_CATEGORIES.find(c => c.id === categoryId);
+  const maxId = FIN_TRANSACTIONS.reduce((m,t) => Math.max(m, parseInt(t.id,10)||0), -1);
+  FIN_TRANSACTIONS.push({id: String(maxId+1), date, categoryId, type: cat ? cat.type : 'expense', amount, note: note || ''});
+  saveTransactions();
+}
+function removeTransaction(id) { FIN_TRANSACTIONS = FIN_TRANSACTIONS.filter(t => t.id !== id); saveTransactions(); }
+
+function fmtCurrency(n) {
+  const sign = n < 0 ? '-' : '';
+  return sign + '₹' + Math.abs(Math.round(n)).toLocaleString('en-IN');
+}
+
+let currentFinMonth = new Date();
+
+function renderFinance() {
+  const y = currentFinMonth.getFullYear(), m = currentFinMonth.getMonth();
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('fin-month-label').textContent = monthNames[m] + ' ' + y;
+  const monthKey = y + '-' + String(m+1).padStart(2,'0');
+
+  const monthTx = FIN_TRANSACTIONS.filter(t => t.date.startsWith(monthKey));
+  const income = monthTx.filter(t => t.type === 'income').reduce((s,t) => s + t.amount, 0);
+  const expenses = monthTx.filter(t => t.type === 'expense').reduce((s,t) => s + t.amount, 0);
+  document.getElementById('fin-income').textContent = fmtCurrency(income);
+  document.getElementById('fin-expenses').textContent = fmtCurrency(expenses);
+  document.getElementById('fin-net').textContent = fmtCurrency(income - expenses);
+
+  // budget vs actual
+  const expenseCats = FIN_CATEGORIES.filter(c => c.type === 'expense' && c.budget > 0);
+  const breakdown = document.getElementById('fin-budget-breakdown');
+  const emptyMsg = document.getElementById('fin-budget-empty');
+  if (expenseCats.length === 0) {
+    breakdown.innerHTML = '';
+    emptyMsg.style.display = 'block';
+  } else {
+    emptyMsg.style.display = 'none';
+    breakdown.innerHTML = expenseCats.map(c => {
+      const spent = monthTx.filter(t => t.categoryId === c.id).reduce((s,t)=>s+t.amount, 0);
+      const pct = Math.round(spent / c.budget * 100);
+      const cls = pct >= 100 ? 'budget-over' : (pct >= 80 ? 'budget-warn' : 'budget-ok');
+      return '<div style="margin-bottom:10px;"><div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:3px;"><span>'+c.name+'</span><span class="'+cls+'">'+fmtCurrency(spent)+' / '+fmtCurrency(c.budget)+'</span></div><div class="progress-bar"><div style="width:'+Math.min(pct,100)+'%; background:'+(pct>=100?'var(--danger)':'var(--accent)')+';"></div></div></div>';
+    }).join('');
+  }
+
+  // category select for add-transaction form
+  const select = document.getElementById('fin-tx-category');
+  const prevVal = select.value;
+  select.innerHTML = FIN_CATEGORIES.map(c => '<option value="'+c.id+'">'+c.name+' ('+(c.type==='income'?'income':'expense')+')</option>').join('');
+  if (prevVal && FIN_CATEGORIES.some(c=>c.id===prevVal)) select.value = prevVal;
+
+  // transaction list, most recent first
+  const list = document.getElementById('fin-tx-list');
+  const sorted = monthTx.slice().sort((a,b) => b.date.localeCompare(a.date));
+  list.innerHTML = sorted.length ? sorted.map(t => {
+    const cat = FIN_CATEGORIES.find(c => c.id === t.categoryId);
+    return '<div class="tx-row"><div class="tx-left"><span class="tx-cat">'+(cat?cat.name:'Uncategorized')+'</span>' +
+      '<span class="tx-note">'+t.date + (t.note ? ' · ' + t.note : '')+'</span></div>' +
+      '<div class="tx-right"><span class="tx-amt '+t.type+'">'+(t.type==='income'?'+':'-')+fmtCurrency(t.amount).replace('-','')+'</span>' +
+      '<button class="tx-del" data-id="'+t.id+'">Delete</button></div></div>';
+  }).join('') : '<p class="hint">No transactions logged this month yet.</p>';
+  list.querySelectorAll('.tx-del').forEach(btn => {
+    btn.addEventListener('click', () => { removeTransaction(btn.dataset.id); renderFinance(); });
+  });
+
+  renderCategoryManager();
+}
+
+function renderCategoryManager() {
+  const container = document.getElementById('fin-category-list');
+  container.innerHTML = FIN_CATEGORIES.map(c => {
+    return '<div class="manage-row" data-row-id="'+c.id+'">' +
+      '<div class="manage-main"><span>'+c.name+' <span class="archived-tag">'+(c.type==='income'?'Income':'Expense'+(c.budget>0?' · budget '+fmtCurrency(c.budget):''))+'</span></span>' +
+      '<span style="display:flex; gap:6px;">' +
+      '<button data-action="edit" data-id="'+c.id+'">Edit</button>' +
+      '<button data-action="remove" data-id="'+c.id+'">Remove</button>' +
+      '</span></div>' +
+      '<div class="edit-form" id="fin-edit-'+c.id+'">' +
+      '<input type="text" data-field="name" value="'+c.name.replace(/"/g,'&quot;')+'" style="min-width:140px;">' +
+      '<select data-field="type"><option value="expense"'+(c.type==='expense'?' selected':'')+'>Expense</option><option value="income"'+(c.type==='income'?' selected':'')+'>Income</option></select>' +
+      '<input type="number" data-field="budget" value="'+c.budget+'" placeholder="Monthly budget" style="width:140px;">' +
+      '<button data-action="save" data-id="'+c.id+'">Save</button>' +
+      '<button data-action="cancel" data-id="'+c.id+'">Cancel</button>' +
+      '</div></div>';
+  }).join('');
+
+  container.querySelectorAll('button[data-action="remove"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (FIN_TRANSACTIONS.some(t => t.categoryId === btn.dataset.id)) {
+        if (!confirm('This category has transactions logged against it. Remove it anyway? Past transactions will stay but show as Uncategorized.')) return;
+      }
+      removeCategory(btn.dataset.id);
+      renderFinance();
+    });
+  });
+  container.querySelectorAll('button[data-action="edit"]').forEach(btn => {
+    btn.addEventListener('click', () => { document.getElementById('fin-edit-' + btn.dataset.id).classList.toggle('open'); });
+  });
+  container.querySelectorAll('button[data-action="cancel"]').forEach(btn => {
+    btn.addEventListener('click', () => { renderCategoryManager(); });
+  });
+  container.querySelectorAll('button[data-action="save"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const form = document.getElementById('fin-edit-' + btn.dataset.id);
+      const name = form.querySelector('[data-field="name"]').value.trim();
+      const type = form.querySelector('[data-field="type"]').value;
+      const budget = parseFloat(form.querySelector('[data-field="budget"]').value) || 0;
+      if (!name) return;
+      updateCategory(btn.dataset.id, {name, type, budget});
+      renderFinance();
+    });
+  });
+}
+
+document.getElementById('fin-add-tx-btn').addEventListener('click', () => {
+  const dateInput = document.getElementById('fin-tx-date');
+  const catSelect = document.getElementById('fin-tx-category');
+  const amountInput = document.getElementById('fin-tx-amount');
+  const noteInput = document.getElementById('fin-tx-note');
+  const amount = parseFloat(amountInput.value);
+  if (!amount || amount <= 0 || !catSelect.value) return;
+  const date = dateInput.value || fmtDate(new Date());
+  addTransaction(date, catSelect.value, amount, noteInput.value.trim());
+  amountInput.value = '';
+  noteInput.value = '';
+  renderFinance();
+});
+document.getElementById('fin-new-cat-name').addEventListener('keydown', (e) => { if (e.key==='Enter') document.getElementById('fin-add-cat-btn').click(); });
+document.getElementById('fin-add-cat-btn').addEventListener('click', () => {
+  const nameInput = document.getElementById('fin-new-cat-name');
+  const typeSelect = document.getElementById('fin-new-cat-type');
+  const budgetInput = document.getElementById('fin-new-cat-budget');
+  const name = nameInput.value.trim();
+  if (!name) return;
+  addCategory(name, typeSelect.value, parseFloat(budgetInput.value) || 0);
+  nameInput.value = '';
+  budgetInput.value = '';
+  renderFinance();
+});
+document.getElementById('prev-fin-month').addEventListener('click', () => { currentFinMonth.setMonth(currentFinMonth.getMonth()-1); renderFinance(); });
+document.getElementById('next-fin-month').addEventListener('click', () => { currentFinMonth.setMonth(currentFinMonth.getMonth()+1); renderFinance(); });
+document.getElementById('fin-tx-date').value = fmtDate(new Date());
+
+// ---------- INSIGHTS ----------
+function allLoggedDates() {
+  const dates = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key.startsWith('daily:')) dates.push(key.slice(6));
+  }
+  return dates.sort();
+}
+function getFreezeCount() { const v = localStorage.getItem('streak-freezes'); return v === null ? 2 : parseInt(v, 10); }
+function setFreezeCount(n) { localStorage.setItem('streak-freezes', String(Math.max(0, n))); }
+function getFrozenDates() { try { return JSON.parse(localStorage.getItem('freeze-used-dates') || '[]'); } catch(e) { return []; } }
+function setFrozenDates(arr) { localStorage.setItem('freeze-used-dates', JSON.stringify(arr)); }
+function getFreezeMilestone() { return parseInt(localStorage.getItem('freeze-milestone') || '0', 10); }
+function setFreezeMilestone(n) { localStorage.setItem('freeze-milestone', String(n)); }
+
+function renderInsights() {
+  const todayStr = fmtDate(new Date());
+  const dates = allLoggedDates();
+  const dataByDate = {};
+  dates.forEach(d => { try { dataByDate[d] = JSON.parse(localStorage.getItem('daily:' + d)); } catch(e){ dataByDate[d] = {}; } });
+  const activeTasks = getActiveTasks();
+  let dailyExpected = activeTasks.filter(t => t.timesPerWeek === 7);
+  if (dailyExpected.length === 0) dailyExpected = activeTasks;
+  const dailyExpectedCount = dailyExpected.length || 1;
+  const frozenDates = getFrozenDates();
+
+  function doneCountFor(record) { return dailyExpected.filter(t => isTaskDoneOnDay(t, record)).length; }
+  function anyDoneFor(record) { return activeTasks.some(t => isTaskDoneOnDay(t, record)); }
+
+  // longest perfect streak across all history (freezes count as continuing, applied only to their actual date)
+  const sortedDates = dates.slice().sort();
+  let longestPerfect = 0, prevDate = null, run = 0;
+  sortedDates.forEach(d => {
+    const record = dataByDate[d];
+    const perfect = doneCountFor(record) === dailyExpectedCount || frozenDates.includes(d);
+    if (perfect) {
+      if (prevDate) {
+        const diffDays = (parseDate(d) - parseDate(prevDate)) / 86400000;
+        run = diffDays === 1 ? run + 1 : 1;
+      } else run = 1;
+      longestPerfect = Math.max(longestPerfect, run);
+      prevDate = d;
+    } else { run = 0; prevDate = null; }
+  });
+
+  // current perfect streak and active streak, walking back from today
+  let currentPerfect = 0, currentActive = 0;
+  let cursor = new Date();
+  let stillPerfect = true, stillActive = true;
+  for (let i = 0; i < 3650; i++) {
+    const ds = fmtDate(cursor);
+    const record = dataByDate[ds] || {};
+    const perfect = doneCountFor(record) === dailyExpectedCount || frozenDates.includes(ds);
+    const active = anyDoneFor(record);
+    if (stillPerfect) {
+      if (perfect) currentPerfect++;
+      else if (ds === todayStr) { /* today still in progress */ }
+      else stillPerfect = false;
+    }
+    if (stillActive) {
+      if (active) currentActive++;
+      else if (ds === todayStr) { /* today still in progress */ }
+      else stillActive = false;
+    }
+    if (!stillPerfect && !stillActive) break;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  document.getElementById('streak-current').textContent = currentPerfect;
+  document.getElementById('streak-best').textContent = longestPerfect;
+  document.getElementById('streak-active').textContent = currentActive;
+
+  // auto-grant a freeze every 7-day perfect milestone, capped at 4
+  const lastMilestone = getFreezeMilestone();
+  const milestoneNow = Math.floor(currentPerfect / 7) * 7;
+  if (milestoneNow > lastMilestone && milestoneNow > 0) {
+    setFreezeCount(Math.min(4, getFreezeCount() + 1));
+    setFreezeMilestone(milestoneNow);
+  }
+
+  // freeze UI
+  const freezeCount = getFreezeCount();
+  document.getElementById('freeze-count-label').textContent = freezeCount + (freezeCount === 1 ? ' streak freeze available' : ' streak freezes available');
+  const freezeBtn = document.getElementById('freeze-btn');
+  const alreadyFrozenToday = frozenDates.includes(todayStr);
+  const todayPerfect = doneCountFor(dataByDate[todayStr] || {}) === dailyExpectedCount;
+  freezeBtn.disabled = freezeCount <= 0 || alreadyFrozenToday || todayPerfect;
+  freezeBtn.textContent = alreadyFrozenToday ? 'Freeze used for today' : (todayPerfect ? 'Not needed — today is perfect' : 'Use a freeze for today');
+  freezeBtn.onclick = () => {
+    if (freezeCount <= 0 || alreadyFrozenToday) return;
+    const fd = getFrozenDates(); fd.push(todayStr); setFrozenDates(fd);
+    setFreezeCount(freezeCount - 1);
+    renderInsights();
+  };
+
+  // Heatmap: last 18 weeks
+  const heatmap = document.getElementById('heatmap');
+  heatmap.innerHTML = '';
+  const weeksToShow = 18;
+  const todayMonday = startOfWeek(new Date());
+  const firstMonday = new Date(todayMonday); firstMonday.setDate(todayMonday.getDate() - (weeksToShow - 1) * 7);
+  for (let w = 0; w < weeksToShow; w++) {
+    const col = document.createElement('div');
+    col.className = 'heatmap-col';
+    for (let day = 0; day < 7; day++) {
+      const d = new Date(firstMonday); d.setDate(firstMonday.getDate() + w * 7 + day);
+      const ds = fmtDate(d);
+      const record = dataByDate[ds] || {};
+      const done = activeTasks.filter(t => isTaskDoneOnDay(t, record)).length;
+      const ratio = activeTasks.length ? done / activeTasks.length : 0;
+      const cell = document.createElement('div');
+      cell.className = 'heatmap-cell';
+      cell.title = ds + ': ' + done + '/' + activeTasks.length;
+      if (d > new Date()) cell.style.background = 'transparent';
+      else if (ratio === 0) cell.style.background = 'var(--line)';
+      else if (ratio <= 0.4) cell.style.background = 'var(--accent-soft)';
+      else if (ratio <= 0.75) { cell.style.background = 'var(--accent)'; cell.style.opacity = '0.55'; }
+      else cell.style.background = 'var(--accent)';
+      col.appendChild(cell);
+    }
+    heatmap.appendChild(col);
+  }
+
+  // Trend chart, last 30 days
+  const trendDates = [];
+  for (let i = 29; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); trendDates.push(fmtDate(d)); }
+  const trendVals = trendDates.map(ds => {
+    const record = dataByDate[ds] || {};
+    const done = activeTasks.filter(t => isTaskDoneOnDay(t, record)).length;
+    return activeTasks.length ? done / activeTasks.length * 100 : 0;
+  });
+  const w = 640, h = 120, pad = 8;
+  const stepX = (w - pad*2) / (trendVals.length - 1);
+  const points = trendVals.map((v, i) => {
+    const x = pad + i * stepX;
+    const y = h - pad - (v/100) * (h - pad*2);
+    return x.toFixed(1) + ',' + y.toFixed(1);
+  }).join(' ');
+  const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  document.getElementById('trend-chart').innerHTML =
+    '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%; height:120px;">' +
+    '<polyline points="' + points + '" fill="none" stroke="' + accentColor + '" stroke-width="2"/>' +
+    '</svg>' +
+    '<p class="hint" style="margin-top:2px;">Daily completion percentage over the last 30 days.</p>';
+
+  // All-time breakdown, includes archived tasks
+  const totalDays = dates.length || 1;
+  const allTasks = getAllTasks();
+  const taskCounts = new Array(allTasks.length).fill(0);
+  dates.forEach(ds => allTasks.forEach((t,i) => { if (isTaskDoneOnDay(t, dataByDate[ds])) taskCounts[i]++; }));
+  document.getElementById('alltime-breakdown').innerHTML = allTasks.map((t,i) => {
+    const pct = Math.round(taskCounts[i]/totalDays*100);
+    const label = t.name + (t.archived ? ' <span class="archived-tag">(removed)</span>' : '');
+    return '<div class="bar-row"><span class="bar-label">'+label+'</span><div class="bar-track"><div class="bar-fill" style="width:'+pct+'%"></div></div><span class="bar-val">'+pct+'%</span></div>';
+  }).join('') + '<p class="hint">Based on ' + dates.length + ' logged day(s).</p>';
+
+  setupReminders();
+}
+
+// ---------- REMINDERS ----------
+let reminderTimer = null;
+function setupReminders() {
+  const toggle = document.getElementById('reminder-toggle');
+  const timeRow = document.getElementById('reminder-time-row');
+  const timeInput = document.getElementById('reminder-time');
+  const status = document.getElementById('reminder-status');
+
+  const saved = JSON.parse(localStorage.getItem('reminder-settings') || '{}');
+  toggle.checked = !!saved.enabled;
+  timeInput.value = saved.time || '20:00';
+  timeRow.style.display = toggle.checked ? 'flex' : 'none';
+
+  function updateStatus() {
+    if (!toggle.checked) { status.textContent = ''; return; }
+    if (Notification.permission === 'denied') {
+      status.textContent = 'Notifications are blocked in this browser. Enable them in your browser\'s site settings to use reminders.';
+    } else {
+      status.textContent = 'You\'ll get a reminder at ' + timeInput.value + ' if today isn\'t finished yet, as long as this tab is open.';
+    }
+  }
+  updateStatus();
+
+  toggle.onchange = async () => {
+    timeRow.style.display = toggle.checked ? 'flex' : 'none';
+    if (toggle.checked && Notification.permission === 'default') { await Notification.requestPermission(); }
+    localStorage.setItem('reminder-settings', JSON.stringify({enabled: toggle.checked, time: timeInput.value}));
+    updateStatus();
+    scheduleReminderCheck();
+  };
+  timeInput.onchange = () => {
+    localStorage.setItem('reminder-settings', JSON.stringify({enabled: toggle.checked, time: timeInput.value}));
+    updateStatus();
+  };
+}
+function scheduleReminderCheck() {
+  if (reminderTimer) clearInterval(reminderTimer);
+  reminderTimer = setInterval(async () => {
+    const saved = JSON.parse(localStorage.getItem('reminder-settings') || '{}');
+    if (!saved.enabled || Notification.permission !== 'granted') return;
+    const now = new Date();
+    const nowStr = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+    if (nowStr !== saved.time) return;
+    const todayStr = fmtDate(now);
+    if (localStorage.getItem('reminder-last-fired') === todayStr) return;
+    const rec = await getDaily(todayStr);
+    const activeTasks = getActiveTasks();
+    const done = activeTasks.filter(t => isTaskDoneOnDay(t, rec)).length;
+    if (done < activeTasks.length) {
+      new Notification('Daily practices', {body: done + ' of ' + activeTasks.length + ' done today. Still time to finish.'});
+    }
+    localStorage.setItem('reminder-last-fired', todayStr);
+  }, 30000);
+}
+scheduleReminderCheck();
+
+// ---------- EXPORT / IMPORT ----------
+document.getElementById('export-btn').addEventListener('click', () => {
+  const data = {};
+  const keepKeys = ['reminder-settings', 'task-list-v2', 'streak-freezes', 'freeze-used-dates', 'freeze-milestone', 'finance-categories-v1', 'finance-transactions-v1'];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key.startsWith('daily:') || key.startsWith('weeknotes:') || key.startsWith('monthnotes:') || keepKeys.includes(key)) {
+      data[key] = localStorage.getItem(key);
+    }
+  }
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'tracker-backup-' + fmtDate(new Date()) + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+document.getElementById('import-btn').addEventListener('click', () => { document.getElementById('import-file').click(); });
+document.getElementById('import-file').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try {
+      const data = JSON.parse(evt.target.result);
+      Object.keys(data).forEach(key => localStorage.setItem(key, data[key]));
+      alert('Backup restored. Reloading.');
+      location.reload();
+    } catch (err) {
+      alert('That file could not be read as a valid backup.');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+// ---------- PWA / SERVICE WORKER ----------
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js').catch((err) => {
+      console.log('Service worker registration failed (expected if opened as a local file):', err);
+    });
+  });
+}
+</script>
+</body>
+</html>
